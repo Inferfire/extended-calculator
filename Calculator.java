@@ -20,7 +20,6 @@ public class Calculator {
     // unary calculation button grouping
     private final String fourFunctions = "[×÷+–]";
 
-    private String lastBtnPressed = "AC";
     private Double prevNumber = null;
     private Operator prevOperator = null;
     private boolean operatorPressed = false;
@@ -127,25 +126,28 @@ public class Calculator {
 
     // handles input logic based on the button pressed in a calculator
     void processButton(String buttonText) {
-
         if (buttonText.matches("[0-9.]")) {
             numberOrDecimalInput(buttonText);
         } else if (buttonText.equals("AC")) {
             prevOperator = null;
             clearInput();
-        } else if (buttonText.matches(n4Functions) ||
-                buttonText.matches("[%±]")) {
+        } else if (buttonText.matches(n4Functions) || buttonText.matches("[%±]")) {
             prevOperator = null;
             doMathN4(buttonText);
         } else if (buttonText.matches(fourFunctions)) {
-            prevOperator = null;
-            doMath4F(buttonText);
+            if (resultDisplayed) {
+                // If equals was pressed before, prepare for new operation with the result
+                prevOperator = Operator.fromString(buttonText);
+                operatorPressed = true;
+                resultDisplayed = false;
+            } else {
+                doMath4F(buttonText); // evaluate before setting new operator
+            }
         } else if (buttonText.equals("=")) {
             evaluateEquals();
         }
 
         // update the lastBtnPressed variable after processing the button
-        lastBtnPressed = buttonText;
     }
 
     // handles numerical or decimal input.
@@ -297,9 +299,7 @@ public class Calculator {
             return;
         }
 
-        lastBinaryNumber = currentNumber;
-
-        if (prevOperator != null && prevNumber != null && !lastBtnPressed.matches(fourFunctions)) {
+        if (prevOperator != null && prevNumber != null && !operatorPressed && !resultDisplayed) {
             switch (prevOperator) {
                 case ADD -> currentNumber = prevNumber + currentNumber;
                 case SUBTRACT -> currentNumber = prevNumber - currentNumber;
@@ -311,25 +311,20 @@ public class Calculator {
                     }
                     currentNumber = prevNumber / currentNumber;
                 }
-                default -> {
-                }
             }
-
             display.setText(formatResult(currentNumber));
         }
-
-        if (!lastBtnPressed.matches(fourFunctions)) {
-            lastBinaryNumber = currentNumber;  // This line was added
-        }
-
         prevNumber = currentNumber;
+
         prevOperator = Operator.fromString(operation);
         operatorPressed = true;
+        resultDisplayed = false;  // reset resultDisplayed flag
     }
 
     // handles logic when the equals button is pressed.
     private void evaluateEquals() {
         double currentNumber;
+        double secondOperand;
 
         try {
             currentNumber = Double.parseDouble(display.getText());
@@ -338,8 +333,12 @@ public class Calculator {
             return;
         }
 
-        if (prevOperator != null && prevNumber != null) {
-            double secondOperand = (lastBinaryNumber != null) ? lastBinaryNumber : currentNumber;
+        if (prevOperator != null) {
+            if (lastBinaryNumber != null) {
+                secondOperand = lastBinaryNumber;
+            } else {
+                secondOperand = currentNumber;
+            }
 
             switch (prevOperator) {
                 case ADD -> currentNumber = prevNumber + secondOperand;
@@ -359,10 +358,11 @@ public class Calculator {
 
             display.setText(formatResult(currentNumber));
             resultDisplayed = true;
-            lastBinaryNumber = secondOperand;  // store the second operand for future evaluations with "="
             prevNumber = currentNumber;  // store the result as the new previous number
+            lastBinaryNumber = secondOperand;  // store the second operand for future evaluations with "="
         }
     }
+
 
     // formats the result to display on the calculator's screen.
     private String formatResult(double result) {
