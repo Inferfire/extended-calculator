@@ -15,7 +15,8 @@ public class Calculator {
     final JTextField display = new JTextField("0");
 
     // unary calculation button grouping
-    private final String n4Functions = "x\\^2|x\\^3|e\\^x|10\\^x|Copy|x!|ln|log10|1/x|√x|∛x|e|sin|cos|tan|π|sinh|cosh|tanh|Rand";
+    private final String n4Functions = "x\\^2|x\\^3|e\\^x|10\\^x|Copy|x!|ln|" +
+            "log10|1/x|√x|∛x|e|sin|cos|tan|π|sinh|cosh|tanh|Rand";
 
     // unary calculation button grouping
     private final String fourFunctions = "[×÷+–]";
@@ -127,27 +128,30 @@ public class Calculator {
     // handles input logic based on the button pressed in a calculator
     void processButton(String buttonText) {
         if (buttonText.matches("[0-9.]")) {
+            if (resultDisplayed) {
+                prevNumber = null;
+                prevOperator = null;
+                resultDisplayed = false;
+                display.setText("0"); // resets display for new calculations
+            }
             numberOrDecimalInput(buttonText);
         } else if (buttonText.equals("AC")) {
             prevOperator = null;
             clearInput();
         } else if (buttonText.matches(n4Functions) || buttonText.matches("[%±]")) {
-            prevOperator = null;
             doMathN4(buttonText);
         } else if (buttonText.matches(fourFunctions)) {
-            if (resultDisplayed) {
-                // If equals was pressed before, prepare for new operation with the result
+            if (resultDisplayed || (prevOperator == null && prevNumber == null)) {
+                prevNumber = Double.parseDouble(display.getText());
                 prevOperator = Operator.fromString(buttonText);
                 operatorPressed = true;
                 resultDisplayed = false;
             } else {
-                doMath4F(buttonText); // evaluate before setting new operator
+                doMath4F(buttonText);
             }
         } else if (buttonText.equals("=")) {
             evaluateEquals();
         }
-
-        // update the lastBtnPressed variable after processing the button
     }
 
     // handles numerical or decimal input.
@@ -158,24 +162,22 @@ public class Calculator {
             currentText = "0";
             operatorPressed = false;
             resultDisplayed = false;
-            lastBinaryNumber = null;    // reset last binary number
+            lastBinaryNumber = null; // reset last binary number
         }
 
-        if (buttonText.matches("[0-9.]")) {
-            if (currentText.equals("0")) {
-                if (buttonText.equals(".")) {
+        if (currentText.equals("0")) {
+            if (buttonText.equals(".")) {
+                display.setText(currentText + buttonText);
+            } else {
+                display.setText(buttonText);
+            }
+        } else {
+            if (buttonText.equals(".")) {
+                if (!currentText.contains(".")) {
                     display.setText(currentText + buttonText);
-                } else {
-                    display.setText(buttonText);
                 }
             } else {
-                if (buttonText.equals(".")) {
-                    if (!currentText.contains(".")) {
-                        display.setText(currentText + buttonText);
-                    }
-                } else {
-                    display.setText(currentText + buttonText);
-                }
+                display.setText(currentText + buttonText);
             }
         }
     }
@@ -205,16 +207,18 @@ public class Calculator {
             case "e^x" -> value = Math.exp(value);
             case "10^x" -> value = Math.pow(10, value);
             case "Copy" -> {
-                StringSelection stringSelection = new StringSelection(display.getText());
-                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                StringSelection stringSelection = new StringSelection(
+                        display.getText());
+                Clipboard clipboard =
+                        Toolkit.getDefaultToolkit().getSystemClipboard();
                 clipboard.setContents(stringSelection, null);
-                JOptionPane.showMessageDialog(frame, "Content copied to clipboard.");
+                JOptionPane.showMessageDialog(frame,
+                        "Content copied to clipboard.");
             }
             case "1/x" -> {
                 if (value != 0) {
                     value = 1 / value;
                 } else {
-                    // handle divide by zero
                     display.setText("Error");
                     return;
                 }
@@ -223,7 +227,6 @@ public class Calculator {
                 if (value >= 0) {
                     value = Math.sqrt(value);
                 } else {
-                    // Handle negative input for square root
                     display.setText("Error");
                     return;
                 }
@@ -240,7 +243,6 @@ public class Calculator {
                 if (value > 0) {
                     value = Math.log(value);
                 } else {
-                    // Handle non-positive input for natural log
                     display.setText("Error");
                     return;
                 }
@@ -249,7 +251,6 @@ public class Calculator {
                 if (value > 0) {
                     value = Math.log10(value);
                 } else {
-                    // Handle non-positive input for log base 10
                     display.setText("Error");
                     return;
                 }
@@ -262,9 +263,9 @@ public class Calculator {
             case "sinh" -> value = Math.sinh(value);
             case "cosh" -> value = Math.cosh(value);
             case "tanh" -> value = Math.tanh(value);
-            case "Rand" -> value = Math.random(); // random decimal [0, 1]
-            case "±" -> value = value * -1; // flips sign
-            case "%" -> value = value / 100; // percent as a decimal
+            case "Rand" -> value = Math.random();
+            case "±" -> value = value * -1;
+            case "%" -> value = value / 100;
             default -> {
                 display.setText("Not Implemented");
                 return;
@@ -273,7 +274,7 @@ public class Calculator {
 
         display.setText(formatResult(value));
         resultDisplayed = true;
-
+        prevNumber = value;  // updates prevNumber w/ result of advanced f(x)
     }
 
     // computes the factorial of a given number (int, non-negative)
@@ -299,7 +300,8 @@ public class Calculator {
             return;
         }
 
-        if (prevOperator != null && prevNumber != null && !operatorPressed && !resultDisplayed) {
+        if (prevOperator != null && prevNumber != null && !operatorPressed &&
+                !resultDisplayed) {
             switch (prevOperator) {
                 case ADD -> currentNumber = prevNumber + currentNumber;
                 case SUBTRACT -> currentNumber = prevNumber - currentNumber;
@@ -358,18 +360,19 @@ public class Calculator {
 
             display.setText(formatResult(currentNumber));
             resultDisplayed = true;
-            prevNumber = currentNumber;  // store the result as the new previous number
-            lastBinaryNumber = secondOperand;  // store the second operand for future evaluations with "="
+            prevNumber = currentNumber;  // stores result as new previous number
+            lastBinaryNumber = secondOperand;  // stores 2nd operand for repeats
+        } else {
+            resultDisplayed = true;
         }
     }
-
 
     // formats the result to display on the calculator's screen.
     private String formatResult(double result) {
         // mainly to remove ".0" for whole numbers.
         if (result == (long) result) {
             return String.format("%d", (long) result);
-        } else return String.valueOf(result); // for Errors / Infinity output
+        } else return String.valueOf(result); // for errors / infinity output
     }
 
     // singleton pattern: Returns the single instance of the Calculator class
@@ -383,25 +386,32 @@ public class Calculator {
         System.out.println("Calculator instance created: " + calculator);
     }
 
-    private static JButton genRoundBtn(String text, String colorHex, boolean toggle) {
+    private static JButton genRoundBtn(String text, String colorHex,
+                                       boolean toggle) {
 
         // generates a rounded (hover-able) button for the calculator's UI
         Color defaultColor = Color.decode(colorHex);
-        Color hoverColor = toggle ? Color.decode("#FFFFFF") : defaultColor.brighter();
+        Color hoverColor = toggle ? Color.decode("#FFFFFF") :
+                defaultColor.brighter();
 
         JButton roundedButton = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                boolean isHovering = Boolean.TRUE.equals(getClientProperty("isHovering"));
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+                boolean isHovering =
+                        Boolean.TRUE.equals(getClientProperty("isHovering"));
                 Color bgColor = isHovering ? hoverColor : defaultColor;
                 g2.setColor(bgColor);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 50, 50));
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(),
+                        getHeight(), 50, 50));
                 FontMetrics metrics = g2.getFontMetrics();
                 int x = (getWidth() - metrics.stringWidth(getText())) / 2;
-                int y = (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent();
-                g2.setColor(isHovering && toggle ? Color.decode("#fe9f06") : getForeground());
+                int y = (getHeight() - metrics.getHeight()) / 2 +
+                        metrics.getAscent();
+                g2.setColor(isHovering && toggle ? Color.decode("#fe9f06") :
+                        getForeground());
                 g2.drawString(getText(), x, y);
                 g2.dispose();
             }
@@ -410,7 +420,8 @@ public class Calculator {
         roundedButton.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                roundedButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                roundedButton.setCursor(
+                        Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                 roundedButton.putClientProperty("isHovering", true);
                 roundedButton.repaint();
             }
