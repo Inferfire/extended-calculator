@@ -74,26 +74,27 @@ public class Calculator {
         display.setBackground(backgroundColor);
         frame.add(display);
 
-        int buttonWidth = 60;
-        int buttonHeight = 52;
-        int horizontalSpacing = 5; // between buttons
-        int verticalSpacing = 9;   // between buttons
-        // int rows = 6;
-        int cols = 8;
-
         // button name representation
         String[] buttons = {
                 "x^2", "x^3", "e^x", "10^x", "AC", "±", "%", "÷",
                 "Copy", "x!", "ln", "log10", "7", "8", "9", "×",
                 "1/x", "√x", "∛x", "e", "4", "5", "6", "–",
                 "sin", "cos", "tan", "π", "1", "2", "3", "+",
-                "sinh", "cosh", "tanh", "Rand", "0", "0", ".", "="
+                "sinh", "cosh", "tanh", "Rand", "0", ".", "="
         };
+
+        int horizontalSpacing = 5; // between buttons
+        int verticalSpacing = 9;   // between buttons
+        int buttonHeight = 52;
+        // int rows = 6;
+        int cols = 8;
 
         // initializing buttons and their properties
         for (int i = 0; i < buttons.length; i++) {
             String colour = "#fe9f06";
             String fontColour = "#FFFFFF";
+            int buttonWidth = 60;
+
             if (buttons[i].matches(n4Functions)) {
                 colour = "#212121";
             } else if (buttons[i].equals("AC") || buttons[i].equals("±") ||
@@ -104,6 +105,11 @@ public class Calculator {
                 colour = "#333333";
             }
 
+            // special handling for the "0" button to make it span two columns
+            if (buttons[i].equals("0")) {
+                buttonWidth = 2 * 60 + horizontalSpacing; // "0" button -> wider
+            }
+
             JButton btn;
 
             if (buttons[i].matches(fourFunctions) || buttons[i].equals("=")) {
@@ -112,13 +118,24 @@ public class Calculator {
                 btn = genRoundBtn(buttons[i], colour, false);
             }
 
-            int x = 4 + (i % cols) * (buttonWidth + horizontalSpacing);
+            // calculate x and y positions
+            int x = 4 + (i % cols) * (60 + horizontalSpacing); // default x pos
+
+            // adjust position for "." and "=" due to the wider "0" button
+            if (buttons[i].equals(".") || buttons[i].equals("=")) {
+                x += 60 + horizontalSpacing; // adjust for the combined "0" btn
+            } else if (buttons[i].equals("0")) {
+                // adjust x for "0" button to span two columns
+                x = 4 + 4 * (60 + horizontalSpacing);
+            }
+
             int y = 71 + (i / cols) * (buttonHeight + verticalSpacing);
             btn.setForeground(Color.decode(fontColour));
             btn.setFont(new Font("Helvetica", Font.BOLD, 14));
             btn.setBounds(x, y, buttonWidth, buttonHeight);
             frame.add(btn);
-            // button listener
+
+            // Button listener
             btn.addActionListener(e -> processButton(btn.getText()));
         }
 
@@ -416,14 +433,15 @@ public class Calculator {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                         RenderingHints.VALUE_ANTIALIAS_ON);
-                boolean isHovering =
-                        Boolean.TRUE.equals(getClientProperty("isHovering"));
+                boolean isHovering = Boolean.TRUE.equals(
+                        getClientProperty("isHovering"));
                 Color bgColor = isHovering ? hoverColor : defaultColor;
                 g2.setColor(bgColor);
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(),
                         getHeight(), 50, 50));
                 FontMetrics metrics = g2.getFontMetrics();
-                int x = (getWidth() - metrics.stringWidth(getText())) / 2;
+                int x = text.equals("0") ? 25 : (getWidth() -
+                        metrics.stringWidth(getText())) / 2; // adjusts "0" pos
                 int y = (getHeight() - metrics.getHeight()) / 2 +
                         metrics.getAscent();
                 g2.setColor(isHovering && toggle ? Color.decode("#fe9f06") :
