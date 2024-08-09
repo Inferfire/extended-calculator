@@ -127,6 +127,20 @@ public class Calculator {
 
     // handles input logic based on the button pressed in a calculator
     void processButton(String buttonText) {
+
+        // check if the display is showing an error message
+        if (display.getText().equals("Error")) {
+            if (buttonText.matches("[0-9.]")) {
+                // replace "Error" with pressed number (or decimal)
+                display.setText(buttonText.equals(".") ? "0." : buttonText);
+                resultDisplayed = false;
+                return;
+            } else if (buttonText.equals("AC")) {
+                clearInput(); // allow clearing the error with "AC"
+            }
+            return; // ignore any other operations while in error state
+        }
+
         if (buttonText.matches("[0-9.]")) {
             if (resultDisplayed) {
                 prevNumber = null;
@@ -138,10 +152,12 @@ public class Calculator {
         } else if (buttonText.equals("AC")) {
             prevOperator = null;
             clearInput();
-        } else if (buttonText.matches(n4Functions) || buttonText.matches("[%±]")) {
+        } else if (buttonText.matches(n4Functions) ||
+                buttonText.matches("[%±]")) {
             doMathN4(buttonText);
         } else if (buttonText.matches(fourFunctions)) {
-            if (resultDisplayed || (prevOperator == null && prevNumber == null)) {
+            if (resultDisplayed ||
+                    (prevOperator == null && prevNumber == null)) {
                 prevNumber = Double.parseDouble(display.getText());
                 prevOperator = Operator.fromString(buttonText);
                 operatorPressed = true;

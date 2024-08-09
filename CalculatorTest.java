@@ -162,4 +162,28 @@ public class CalculatorTest {
         pressButtons("=");
         Assertions.assertEquals("11", calculator.display.getText());
     }
+
+    @Test
+    public void testNegativeEdgeCase() {
+        pressButtons("AC", "-", "2", "=");
+        Assertions.assertEquals("2", calculator.display.getText());
+    }
+
+    @Test
+    public void testOperationsOnError() {
+        pressButtons("1/x", "+");
+        Assertions.assertEquals("Error", calculator.display.getText());
+    }
+
+    @Test
+    public void testErrorReplace() {
+        pressButtons("1/x", "2", "=");
+        Assertions.assertEquals("2", calculator.display.getText());
+    }
+
+    @Test
+    public void testOperationsPostError() {
+        pressButtons("1/x", "2", "=", "+", "3", "=");
+        Assertions.assertEquals("5", calculator.display.getText());
+    }
 }
