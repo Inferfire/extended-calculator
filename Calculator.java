@@ -26,6 +26,7 @@ public class Calculator {
     private boolean operatorPressed = false;
     private boolean resultDisplayed = false;
     private Double lastBinaryNumber = null;
+    private final int minSize = 265;
 
     // operator enum for easy management of operator precedence and evaluation
     enum Operator {
@@ -63,6 +64,40 @@ public class Calculator {
         frame.setLayout(null);
         frame.getContentPane().setBackground(Color.decode("#000000"));
         frame.setLocationRelativeTo(null);
+        frame.setResizable(false);
+
+        KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(e -> {
+                    if (e.getID() == KeyEvent.KEY_PRESSED &&
+                            e.getKeyCode() == KeyEvent.VK_F) {
+                        Dimension currentSize = frame.getSize();
+                        if (currentSize.width == 522) {
+                            smoothResize(minSize); // half size w/ animation
+                            // components moved to the left/right -adjusted
+                            for (Component component :
+                                    frame.getContentPane().getComponents()) {
+                                Rectangle bounds = component.getBounds();
+                                bounds.x -= -5; // use adjusted move step
+                                component.setBounds(bounds);
+                            }
+                        } else if (currentSize.width == 265){
+                            smoothResize(522); // full size w/ animation
+                            // components moved to the left/right -adjusted
+                            for (Component component :
+                                    frame.getContentPane().getComponents()) {
+                                Rectangle bounds = component.getBounds();
+                                bounds.x -= 5; // use adjusted move step
+                                component.setBounds(bounds);
+                            }
+                        }
+                        return true; // indicates that the event is handled
+                    }
+                    return false; // event is not handled
+                });
+
+        // frame is focused to receive key events
+        frame.setFocusable(true);
+        frame.requestFocusInWindow();
 
         display.setHorizontalAlignment(JTextField.RIGHT);
         display.setBounds(2, 2, 517, 70);
@@ -140,6 +175,38 @@ public class Calculator {
         }
 
         frame.setVisible(true);
+    }
+
+    private void smoothResize(int targetWidth) {
+        int currentWidth = frame.getWidth();
+        int step = (targetWidth > currentWidth) ? 25 : -25; // directionality
+        int delta = targetWidth - currentWidth; // diff btwn target + curr width
+        int originalMinSize = 247; // original minimum size
+
+        Timer timer = new Timer(1, null); // timer with a delay of 1ms
+
+        timer.addActionListener(e -> {
+            int newWidth = frame.getWidth() + step;
+
+            // keep moveStep proportional to original minSize
+            int adjustedMoveStep = step * originalMinSize / Math.abs(delta);
+
+            // components moved to the left/right to adjust for the width change
+            for (Component component : frame.getContentPane().getComponents()) {
+                Rectangle bounds = component.getBounds();
+                bounds.x += adjustedMoveStep; // use adjusted move step
+                component.setBounds(bounds);
+            }
+
+            if ((step > 0 && newWidth >= targetWidth) ||
+                    (step < 0 && newWidth <= targetWidth)) {
+                frame.setSize(targetWidth, frame.getHeight());
+                timer.stop(); // stop timer when target size reached
+            } else {
+                frame.setSize(newWidth, frame.getHeight());
+            }
+        });
+        timer.start();
     }
 
     // handles input logic based on the button pressed in a calculator
