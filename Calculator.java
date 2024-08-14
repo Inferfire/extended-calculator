@@ -27,6 +27,9 @@ public class Calculator {
     private boolean resultDisplayed = false;
     private Double lastBinaryNumber = null;
     private final int minSize = 265;
+    private boolean isExtended = true; // whether calculator is extended or not
+    private JDialog copyPopup = null; // reference for copy notification popup
+
 
     // operator enum for easy management of operator precedence and evaluation
     enum Operator {
@@ -68,31 +71,107 @@ public class Calculator {
 
         KeyboardFocusManager.getCurrentKeyboardFocusManager()
                 .addKeyEventDispatcher(e -> {
-                    if (e.getID() == KeyEvent.KEY_PRESSED &&
-                            e.getKeyCode() == KeyEvent.VK_F) {
-                        Dimension currentSize = frame.getSize();
-                        if (currentSize.width == 522) {
-                            smoothResize(minSize); // half size w/ animation
-                            // components moved to the left/right -adjusted
-                            for (Component component :
-                                    frame.getContentPane().getComponents()) {
-                                Rectangle bounds = component.getBounds();
-                                bounds.x -= -5; // use adjusted move step
-                                component.setBounds(bounds);
+                    if (e.getID() == KeyEvent.KEY_PRESSED) {
+                        char keyChar = e.getKeyChar();
+
+                        // Disable keyboard input when popup is active
+                        if (copyPopup != null && copyPopup.isVisible()) {
+                            if (e.getID() == KeyEvent.KEY_PRESSED &&
+                                    e.getKeyCode() == KeyEvent.VK_ENTER) {
+                                copyPopup.dispose();
+                                copyPopup = null;
+                                frame.setFocusable(true);  // allows key inputs
+                                frame.requestFocusInWindow();
                             }
-                        } else if (currentSize.width == 265){
-                            smoothResize(522); // full size w/ animation
-                            // components moved to the left/right -adjusted
-                            for (Component component :
-                                    frame.getContentPane().getComponents()) {
-                                Rectangle bounds = component.getBounds();
-                                bounds.x -= 5; // use adjusted move step
-                                component.setBounds(bounds);
+                            return true; // block all other key events
+                        }
+
+                        // F key press to toggle calculator extension
+                        if (e.getKeyCode() == KeyEvent.VK_F) {
+                            Dimension currentSize = frame.getSize();
+                            if (currentSize.width == 522) {
+                                smoothResize(minSize); // half size w/ animation
+                                // components moved to the left/right -adjusted
+                                for (Component component :
+                                        frame.getContentPane()
+                                                .getComponents()) {
+                                    Rectangle bounds = component.getBounds();
+                                    bounds.x -= -5; // use adjusted move step
+                                    component.setBounds(bounds);
+                                }
+                            } else if (currentSize.width == 265) {
+                                smoothResize(522); // full size w/ animation
+                                // components moved to the left/right -adjusted
+                                for (Component component :
+                                        frame.getContentPane()
+                                                .getComponents()) {
+                                    Rectangle bounds = component.getBounds();
+                                    bounds.x -= 5; // use adjusted move step
+                                    component.setBounds(bounds);
+                                }
+                            }
+                            return true; // key handled
+                        }
+
+                        // number and decimal input via keyboard
+                        if (Character.isDigit(keyChar) || keyChar == '.') {
+                            processButton(String.valueOf(keyChar));
+                            return true; // key handled
+                        }
+
+                        // operator input via keyboard
+                        switch (keyChar) {
+                            case '+' -> {
+                                processButton("+");
+                                return true; // key handled
+                            }
+                            case '-' -> {
+                                processButton("–");
+                                return true; // key handled
+                            }
+                            case '*' -> {
+                                processButton("×");
+                                return true; // key handled
+                            }
+                            case '/' -> {
+                                processButton("÷");
+                                return true; // key handled
+                            }
+                            case '=' -> {
+                                processButton("=");
+                                return true; // key handled
+                            }
+                            case '%' -> {
+                                processButton("%");
+                                return true; // key handled
                             }
                         }
-                        return true; // indicates that the event is handled
+
+                        // detecting enter key for equals operation
+                        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                            processButton("=");
+                            return true; // key handled
+                        }
+
+                        // detecting ctrl or cmd + C for copy function
+                        if ((e.getModifiersEx() &
+                                KeyEvent.CTRL_DOWN_MASK) != 0 ||
+                                (e.getModifiersEx() &
+                                        KeyEvent.META_DOWN_MASK) != 0) {
+                            if (e.getKeyCode() == KeyEvent.VK_C) {
+                                processButton("Copy");
+                                return true; // key handled
+                            }
+                        }
+
+                        // C key for AC / clear function
+                        if (e.getKeyCode() == KeyEvent.VK_C) {
+                            processButton("AC");
+                            return true; // key handled
+                        }
                     }
-                    return false; // event is not handled
+
+                    return false; // key event not handled
                 });
 
         // frame is focused to receive key events
@@ -202,6 +281,11 @@ public class Calculator {
                     (step < 0 && newWidth <= targetWidth)) {
                 frame.setSize(targetWidth, frame.getHeight());
                 timer.stop(); // stop timer when target size reached
+
+                // update isShortenedForm based on the new size
+                isExtended = targetWidth != minSize;
+                System.out.println(isExtended);
+
             } else {
                 frame.setSize(newWidth, frame.getHeight());
             }
@@ -307,13 +391,13 @@ public class Calculator {
             case "e^x" -> value = Math.exp(value);
             case "10^x" -> value = Math.pow(10, value);
             case "Copy" -> {
-                StringSelection stringSelection = new StringSelection(
-                        display.getText());
+                StringSelection stringSelection =
+                        new StringSelection(display.getText());
                 Clipboard clipboard =
                         Toolkit.getDefaultToolkit().getSystemClipboard();
                 clipboard.setContents(stringSelection, null);
-                JOptionPane.showMessageDialog(frame,
-                        "Content copied to clipboard.");
+                showCopyPopup(); // Show the copy popup
+                return; // early return to avoid further processing
             }
             case "1/x" -> {
                 if (value != 0) {
@@ -469,10 +553,52 @@ public class Calculator {
 
     // formats the result to display on the calculator's screen.
     private String formatResult(double result) {
+
+        // int precision = !isExtended ? 10 : 15; use later for rounding
+
         // mainly to remove ".0" for whole numbers.
         if (result == (long) result) {
             return String.format("%d", (long) result);
         } else return String.valueOf(result); // for errors / infinity output
+    }
+
+    private void showCopyPopup() {
+        // If a popup already exists, dispose of it
+        if (copyPopup != null && copyPopup.isVisible()) {
+            copyPopup.dispose();
+        }
+
+        // Create a new JOptionPane for the copy notification
+        JOptionPane optionPane = new JOptionPane("Content copied to clipboard.",
+                JOptionPane.INFORMATION_MESSAGE,
+                JOptionPane.DEFAULT_OPTION);
+
+        // Create a JDialog from the JOptionPane
+        copyPopup = optionPane.createDialog(frame, "Notification");
+        copyPopup.setModal(true);
+
+        // Disable frame key inputs while popup is visible
+        frame.setFocusable(false);
+
+        // Add a KeyListener to the JDialog to handle the Enter key press
+        copyPopup.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    copyPopup.dispose();
+                    copyPopup = null;
+                    frame.setFocusable(true);  // re-enable frame key inputs
+                    frame.requestFocusInWindow();
+                }
+            }
+        });
+
+        // Display the dialog and block until the user presses "OK" or Enter
+        copyPopup.setVisible(true);
+
+        // Re-enable frame key inputs after the dialog is dismissed
+        frame.setFocusable(true);
+        frame.requestFocusInWindow();
     }
 
     // singleton pattern: Returns the single instance of the Calculator class
